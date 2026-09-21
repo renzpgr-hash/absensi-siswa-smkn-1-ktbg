@@ -50,12 +50,12 @@ function updateDateTime() {
     if (timeEl) timeEl.textContent = now.toLocaleTimeString('id-ID');
 }
 
-// Fungsi Kamera: Buka Kamera DEPAN TANPA MIRROR
+// Fungsi Kamera: Buka Kamera DEPAN DENGAN EFEK CERMIN
 const startCameraBtn = document.getElementById('startCamera');
 if (startCameraBtn) {
     startCameraBtn.addEventListener('click', async function() {
         try {
-            // facingMode: 'user' MEMAKSA PAKAI KAMERA DEPAN
+            // facingMode: 'user' memaksa pakai kamera depan
             stream = await navigator.mediaDevices.getUserMedia({ 
                 video: { 
                     facingMode: 'user', 
@@ -67,8 +67,8 @@ if (startCameraBtn) {
             const video = document.getElementById('camera');
             video.srcObject = stream;
             
-            // PASTIKAN TIDAK ADA TRANSFORM MIRROR DI CSS JS
-            video.style.transform = 'none'; 
+            // TERAPKAN EFEK CERMIN DI PREVIEW AGAR NATURAL SAAT SELFIE
+            video.style.transform = 'scaleX(-1)'; 
             
             this.classList.add('hidden');
             document.getElementById('takePhoto').classList.remove('hidden');
@@ -79,7 +79,7 @@ if (startCameraBtn) {
     });
 }
 
-// Fungsi Kamera: Ambil Foto (ANTI MIRROR + KOMPRESI HQ)
+// Fungsi Kamera: Ambil Foto (HASIL ASLI TIDAK MIRROR)
 const takePhotoBtn = document.getElementById('takePhoto');
 if (takePhotoBtn) {
     takePhotoBtn.addEventListener('click', async function() {
@@ -91,13 +91,17 @@ if (takePhotoBtn) {
         canvas.height = video.videoHeight;
         const context = canvas.getContext('2d');
         
-        // Gambar langsung tanpa flip horizontal (Non-Mirror)
+        // FLIP HORIZONTAL SAAT MENGGAMBAR KE CANVAS
+        // Ini penting! Karena preview di-mirror, kita harus flip balik 
+        // saat capture agar hasil foto yang tersimpan adalah ORISINAL (tidak terbalik)
+        context.translate(canvas.width, 0);
+        context.scale(-1, 1);
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         
         // Simpan full quality dulu untuk preview
         const fullQualityPhoto = canvas.toDataURL('image/jpeg', 0.95);
         
-        // Preview hasil juga tidak boleh mirror
+        // Preview hasil foto JANGAN di-mirror agar siswa bisa cek kebenaran data
         photoPreview.src = fullQualityPhoto;
         photoPreview.style.transform = 'none'; 
         
@@ -119,8 +123,8 @@ if (retakePhotoBtn) {
         document.getElementById('photoPreview').classList.add('hidden');
         document.getElementById('camera').classList.remove('hidden');
         
-        // Pastikan tetap tidak mirror saat kembali ke live camera
-        document.getElementById('camera').style.transform = 'none';
+        // KEMBALIKAN EFEK CERMIN SAAT LIVE CAMERA NYALA LAGI
+        document.getElementById('camera').style.transform = 'scaleX(-1)';
         
         this.classList.add('hidden');
         document.getElementById('takePhoto').classList.remove('hidden');
@@ -139,7 +143,8 @@ async function startCameraAgain() {
         });
         const video = document.getElementById('camera');
         video.srcObject = stream;
-        video.style.transform = 'none'; // Re-apply non-mirror
+        // Re-apply mirror effect
+        video.style.transform = 'scaleX(-1)'; 
     } catch (error) {
         console.error('Gagal restart kamera:', error);
     }
