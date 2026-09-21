@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absensi SMK - Verifikasi Kehadiran</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-content">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Memverifikasi koneksi...</p>
+        </div>
+    </div>
+
+    <!-- WiFi Check Warning -->
+    <div id="wifiWarning" class="wifi-warning hidden">
+        <div class="warning-box">
+            <i class="fas fa-wifi-slash"></i>
+            <h2>Koneksi Tidak Valid</h2>
+            <p>Anda harus terhubung ke WiFi sekolah untuk melakukan absensi.</p>
+            <button onclick="checkWiFi()" class="btn-primary">Coba Lagi</button>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div id="mainContainer" class="container hidden">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <i class="fas fa-school"></i>
+                <h1>SMK NEGERI</h1>
+            </div>
+            <div class="datetime">
+                <div id="currentDate"></div>
+                <div id="currentTime"></div>
+            </div>
+        </header>
+
+        <!-- Student Form -->
+        <div class="form-section">
+            <h2 class="section-title">Absensi Kehadiran</h2>
+            
+            <form id="attendanceForm">
+                <div class="input-group">
+                    <label for="studentName">Nama Lengkap</label>
+                    <select id="studentName" required>
+                        <option value="">Pilih Nama Anda</option>
+                        <option value="Ahmad Rizki">Ahmad Rizki</option>
+                        <option value="Siti Nurhaliza">Siti Nurhaliza</option>
+                        <option value="Budi Santoso">Budi Santoso</option>
+                        <option value="Dewi Lestari">Dewi Lestari</option>
+                        <option value="Eko Prasetyo">Eko Prasetyo</option>
+                        <option value="Fitri Handayani">Fitri Handayani</option>
+                        <option value="Galih Pratama">Galih Pratama</option>
+                        <option value="Hani Safitri">Hani Safitri</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label for="kelas">Kelas</label>
+                    <select id="kelas" required>
+                        <option value="">Pilih Kelas</option>
+                        <option value="X RPL 1">X RPL 1</option>
+                        <option value="X RPL 2">X RPL 2</option>
+                        <option value="XI RPL 1">XI RPL 1</option>
+                        <option value="XI RPL 2">XI RPL 2</option>
+                        <option value="XII RPL 1">XII RPL 1</option>
+                        <option value="XII RPL 2">XII RPL 2</option>
+                    </select>
+                </div>
+
+                <!-- Camera Section -->
+                <div class="camera-section">
+                    <label>Foto Bukti Kehadiran</label>
+                    <div class="camera-container">
+                        <video id="camera" autoplay playsinline></video>
+                        <canvas id="canvas" style="display:none;"></canvas>
+                        <img id="photoPreview" class="hidden">
+                        
+                        <div class="camera-controls">
+                            <button type="button" id="startCamera" class="btn-camera">
+                                <i class="fas fa-camera"></i> Buka Kamera
+                            </button>
+                            <button type="button" id="takePhoto" class="btn-camera hidden">
+                                <i class="fas fa-circle"></i> Ambil Foto
+                            </button>
+                            <button type="button" id="retakePhoto" class="btn-camera hidden">
+                                <i class="fas fa-redo"></i> Ulangi
+                            </button>
+                        </div>
+                    </div>
+                    <p class="help-text">* Pastikan foto diambil di lingkungan sekolah sebagai bukti kehadiran</p>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" id="submitBtn" class="btn-submit" disabled>
+                    <i class="fas fa-check-circle"></i> Konfirmasi Absensi
+                </button>
+            </form>
+        </div>
+
+        <!-- Success Message -->
+        <div id="successMessage" class="success-message hidden">
+            <div class="success-box">
+                <i class="fas fa-check-circle"></i>
+                <h3>Absensi Berhasil!</h3>
+                <p>Data kehadiran Anda telah tersimpan.</p>
+                <button onclick="resetForm()" class="btn-primary">Absen Lagi</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
