@@ -6,7 +6,7 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxfz8mRa--N1B
 let stream = null;
 let photoData = null;
 
-// Fungsi Kompresi Foto (Wajib ada biar gak gagal upload)
+// FUNGSI KOMPRESI FOTO (WAJIB ADA!)
 async function compressImage(base64Str) {
     return new Promise((resolve) => {
         const img = new Image();
