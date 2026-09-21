@@ -1,65 +1,68 @@
 // ==========================================
 // KONFIGURASI URL GOOGLE SCRIPT
 // ==========================================
-// ⚠️ GANTI URL DI BAWAH INI DENGAN URL WEB APP DARI GOOGLE APPS SCRIPT KAMU
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxfz8mRa--N1Bluz-dSMUX16RCRsShUhZkAyrfnAme3TyPaH-CQfKftlGYp85OyW9JjYA/exec'; 
 
 let stream = null;
 let photoData = null;
 
-// Initialize saat halaman dimuat
+// Fungsi Kompresi Foto (Wajib ada biar gak gagal upload)
+async function compressImage(base64Str) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            // Resize max lebar 600px (cukup untuk bukti absen)
+            const scale = Math.min(1, 600 / img.width);
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            // Kualitas 60% agar ukuran file kecil (<500KB)
+            resolve(canvas.toDataURL('image/jpeg', 0.6));
+        };
+        img.src = base64Str;
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
-    // 1. Hilangkan loading screen segera agar tidak muter-muter
     const loadingScreen = document.getElementById('loadingScreen');
     if (loadingScreen) loadingScreen.style.display = 'none';
-
-    // 2. Tampilkan container utama
+    
     const mainContainer = document.getElementById('mainContainer');
     if (mainContainer) mainContainer.classList.remove('hidden');
-
-    // 3. Jalankan jam
+    
     updateDateTime();
     setInterval(updateDateTime, 1000);
 });
 
-// Update Jam dan Tanggal
 function updateDateTime() {
     const now = new Date();
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    
     const dateEl = document.getElementById('currentDate');
     const timeEl = document.getElementById('currentTime');
-    
     if (dateEl) dateEl.textContent = now.toLocaleDateString('id-ID', options);
     if (timeEl) timeEl.textContent = now.toLocaleTimeString('id-ID');
 }
 
-// Fungsi Kamera: Buka Kamera
+// Buka Kamera
 const startCameraBtn = document.getElementById('startCamera');
 if (startCameraBtn) {
     startCameraBtn.addEventListener('click', async function() {
         try {
             stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { 
-                    facingMode: 'environment', 
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                } 
+                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } 
             });
-            
-            const video = document.getElementById('camera');
-            video.srcObject = stream;
-            
+            document.getElementById('camera').srcObject = stream;
             this.classList.add('hidden');
             document.getElementById('takePhoto').classList.remove('hidden');
-            
         } catch (error) {
-            alert('Gagal mengakses kamera: ' + error.message);
+            alert('Gagal akses kamera: ' + error.message);
         }
     });
 }
 
-// Fungsi Kamera: Ambil Foto
+// Ambil Foto
 const takePhotoBtn = document.getElementById('takePhoto');
 if (takePhotoBtn) {
     takePhotoBtn.addEventListener('click', function() {
@@ -69,11 +72,9 @@ if (takePhotoBtn) {
         
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        const context = canvas.getContext('2d');
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        photoData = canvas.toDataURL('image/jpeg', 0.8);
+        photoData = canvas.toDataURL('image/jpeg', 0.8); // Simpan full quality dulu
         
         photoPreview.src = photoData;
         photoPreview.classList.remove('hidden');
@@ -87,17 +88,15 @@ if (takePhotoBtn) {
     });
 }
 
-// Fungsi Kamera: Ulangi Foto
+// Ulangi Foto
 const retakePhotoBtn = document.getElementById('retakePhoto');
 if (retakePhotoBtn) {
     retakePhotoBtn.addEventListener('click', function() {
         document.getElementById('photoPreview').classList.add('hidden');
         document.getElementById('camera').classList.remove('hidden');
-        
         this.classList.add('hidden');
         document.getElementById('takePhoto').classList.remove('hidden');
         document.getElementById('submitBtn').disabled = true;
-        
         photoData = null;
         startCameraAgain();
     });
@@ -105,64 +104,54 @@ if (retakePhotoBtn) {
 
 async function startCameraAgain() {
     try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'environment' } 
-        });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
         document.getElementById('camera').srcObject = stream;
-    } catch (error) {
-        console.error('Gagal restart kamera:', error);
-    }
+    } catch (error) { console.error(error); }
 }
 
-// Submit Form Absensi (LANGSUNG KE GOOGLE SHEETS)
+// Submit Form (DENGAN KOMPRESI OTOMATIS)
 const attendanceForm = document.getElementById('attendanceForm');
 if (attendanceForm) {
     attendanceForm.addEventListener('submit', async function(e) {
         e.preventDefault();
-        
-        if (!photoData) {
-            alert('Silakan ambil foto terlebih dahulu!');
-            return;
-        }
+        if (!photoData) return alert('Silakan ambil foto terlebih dahulu!');
         
         const studentName = document.getElementById('studentName').value;
         const kelas = document.getElementById('kelas').value;
         const submitBtn = document.getElementById('submitBtn');
         
-        // Efek loading
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim Data...';
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Kompres & Kirim...';
 
         try {
-            // Siapkan data untuk dikirim
+            // KOMPRES FOTO SEBELUM DIKIRIM AGAR TIDAK GAGAL
+            const compressedPhoto = await compressImage(photoData);
+            
             const payload = {
                 studentName: studentName,
                 kelas: kelas,
                 timestamp: new Date().toISOString(),
                 status: 'Tepat Waktu',
-                photo: photoData
+                photo: compressedPhoto // Gunakan hasil kompresi
             };
 
-            // KIRIM KE GOOGLE SCRIPT
             await fetch(GOOGLE_SCRIPT_URL, {
                 method: 'POST',
-                mode: 'no-cors', // Penting agar tidak diblokir browser
+                mode: 'no-cors',
                 headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify(payload)
             });
 
-            // Jika berhasil sampai sini, anggap sukses
             document.getElementById('successMessage').classList.remove('hidden');
             
         } catch (error) {
-            alert('Gagal mengirim data: ' + error.message);
+            alert('Gagal mengirim: ' + error.message);
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Konfirmasi Absensi';
         }
     });
 }
 
-// Reset Form
 function resetForm() {
     document.getElementById('attendanceForm').reset();
     document.getElementById('successMessage').classList.add('hidden');
@@ -173,10 +162,6 @@ function resetForm() {
     document.getElementById('retakePhoto').classList.add('hidden');
     document.getElementById('submitBtn').disabled = true;
     document.getElementById('submitBtn').innerHTML = '<i class="fas fa-check-circle"></i> Konfirmasi Absensi';
-    
     photoData = null;
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        stream = null;
-    }
+    if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; }
 }
