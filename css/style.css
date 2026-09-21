@@ -574,3 +574,9 @@ tbody tr:hover {
         flex-wrap: wrap;
     }
 }
+
+/* PENGAMAN ANTI-MIRROR GLOBAL */
+#camera, #photoPreview {
+    transform: none !important;
+    -webkit-transform: none !important;
+}
