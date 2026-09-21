@@ -50,7 +50,7 @@ function updateDateTime() {
     if (timeEl) timeEl.textContent = now.toLocaleTimeString('id-ID');
 }
 
-// Fungsi Kamera: Buka Kamera DEPAN DENGAN EFEK CERMIN
+// Fungsi Kamera: Buka Kamera DEPAN TANPA MIRROR
 const startCameraBtn = document.getElementById('startCamera');
 if (startCameraBtn) {
     startCameraBtn.addEventListener('click', async function() {
@@ -67,8 +67,8 @@ if (startCameraBtn) {
             const video = document.getElementById('camera');
             video.srcObject = stream;
             
-            // TERAPKAN EFEK CERMIN DI PREVIEW AGAR NATURAL SAAT SELFIE
-            video.style.transform = 'scaleX(-1)'; 
+            // PASTIKAN TIDAK ADA TRANSFORM MIRROR (LURUS ASLI)
+            video.style.transform = 'none'; 
             
             this.classList.add('hidden');
             document.getElementById('takePhoto').classList.remove('hidden');
@@ -79,7 +79,7 @@ if (startCameraBtn) {
     });
 }
 
-// Fungsi Kamera: Ambil Foto (HASIL ASLI TIDAK MIRROR)
+// Fungsi Kamera: Ambil Foto (ANTI MIRROR + KOMPRESI HQ)
 const takePhotoBtn = document.getElementById('takePhoto');
 if (takePhotoBtn) {
     takePhotoBtn.addEventListener('click', async function() {
@@ -91,17 +91,13 @@ if (takePhotoBtn) {
         canvas.height = video.videoHeight;
         const context = canvas.getContext('2d');
         
-        // FLIP HORIZONTAL SAAT MENGGAMBAR KE CANVAS
-        // Ini penting! Karena preview di-mirror, kita harus flip balik 
-        // saat capture agar hasil foto yang tersimpan adalah ORISINAL (tidak terbalik)
-        context.translate(canvas.width, 0);
-        context.scale(-1, 1);
+        // Gambar langsung tanpa flip horizontal (Non-Mirror)
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         
         // Simpan full quality dulu untuk preview
         const fullQualityPhoto = canvas.toDataURL('image/jpeg', 0.95);
         
-        // Preview hasil foto JANGAN di-mirror agar siswa bisa cek kebenaran data
+        // Preview hasil juga tidak boleh mirror
         photoPreview.src = fullQualityPhoto;
         photoPreview.style.transform = 'none'; 
         
@@ -123,8 +119,8 @@ if (retakePhotoBtn) {
         document.getElementById('photoPreview').classList.add('hidden');
         document.getElementById('camera').classList.remove('hidden');
         
-        // KEMBALIKAN EFEK CERMIN SAAT LIVE CAMERA NYALA LAGI
-        document.getElementById('camera').style.transform = 'scaleX(-1)';
+        // Pastikan tetap tidak mirror saat kembali ke live camera
+        document.getElementById('camera').style.transform = 'none';
         
         this.classList.add('hidden');
         document.getElementById('takePhoto').classList.remove('hidden');
@@ -143,8 +139,7 @@ async function startCameraAgain() {
         });
         const video = document.getElementById('camera');
         video.srcObject = stream;
-        // Re-apply mirror effect
-        video.style.transform = 'scaleX(-1)'; 
+        video.style.transform = 'none'; // Re-apply non-mirror
     } catch (error) {
         console.error('Gagal restart kamera:', error);
     }
