@@ -6,20 +6,27 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxfz8mRa--N1B
 let stream = null;
 let photoData = null;
 
-// FUNGSI KOMPRESI FOTO (WAJIB ADA!)
+// FUNGSI KOMPRESI FOTO (HIGH QUALITY + SAFE SIZE)
 async function compressImage(base64Str) {
     return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            // Resize max lebar 600px (cukup untuk bukti absen)
-            const scale = Math.min(1, 600 / img.width);
+            
+            // Resize max lebar 1200px (Tajam tapi tidak raksasa)
+            // Jika foto asli < 1200px, tidak akan di-upscale (tetap tajam)
+            const maxWidth = 1200;
+            const scale = Math.min(1, maxWidth / img.width);
+            
             canvas.width = img.width * scale;
             canvas.height = img.height * scale;
+            
+            // Render gambar ke canvas
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            // Kualitas 60% agar ukuran file kecil (<500KB)
-            resolve(canvas.toDataURL('image/jpeg', 0.6));
+            
+            // Kompres dengan kualitas 0.85 (Sangat jelas, ukuran ~300-600KB)
+            resolve(canvas.toDataURL('image/jpeg', 0.85));
         };
         img.src = base64Str;
     });
@@ -51,7 +58,7 @@ if (startCameraBtn) {
     startCameraBtn.addEventListener('click', async function() {
         try {
             stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } 
+                video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } 
             });
             document.getElementById('camera').srcObject = stream;
             this.classList.add('hidden');
@@ -62,7 +69,7 @@ if (startCameraBtn) {
     });
 }
 
-// Ambil Foto
+// Ambil Foto (Simpan Full Quality Dulu untuk Preview)
 const takePhotoBtn = document.getElementById('takePhoto');
 if (takePhotoBtn) {
     takePhotoBtn.addEventListener('click', function() {
@@ -74,7 +81,8 @@ if (takePhotoBtn) {
         canvas.height = video.videoHeight;
         canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        photoData = canvas.toDataURL('image/jpeg', 0.8); // Simpan full quality dulu
+        // Simpan full quality untuk preview di layar siswa
+        photoData = canvas.toDataURL('image/jpeg', 0.95); 
         
         photoPreview.src = photoData;
         photoPreview.classList.remove('hidden');
@@ -109,7 +117,7 @@ async function startCameraAgain() {
     } catch (error) { console.error(error); }
 }
 
-// Submit Form (DENGAN KOMPRESI OTOMATIS)
+// Submit Form (DENGAN KOMPRESI HIGH QUALITY)
 const attendanceForm = document.getElementById('attendanceForm');
 if (attendanceForm) {
     attendanceForm.addEventListener('submit', async function(e) {
@@ -121,10 +129,10 @@ if (attendanceForm) {
         const submitBtn = document.getElementById('submitBtn');
         
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Kompres & Kirim...';
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Optimasi & Kirim...';
 
         try {
-            // KOMPRES FOTO SEBELUM DIKIRIM AGAR TIDAK GAGAL
+            // KOMPRES DENGAN KUALITAS TINGGI SEBELUM DIKIRIM
             const compressedPhoto = await compressImage(photoData);
             
             const payload = {
@@ -132,7 +140,7 @@ if (attendanceForm) {
                 kelas: kelas,
                 timestamp: new Date().toISOString(),
                 status: 'Tepat Waktu',
-                photo: compressedPhoto // Gunakan hasil kompresi
+                photo: compressedPhoto 
             };
 
             await fetch(GOOGLE_SCRIPT_URL, {
