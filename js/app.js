@@ -6,32 +6,6 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxfz8mRa--N1B
 let stream = null;
 let photoData = null;
 
-// FUNGSI KOMPRESI FOTO (HIGH QUALITY + SAFE SIZE)
-async function compressImage(base64Str) {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // Resize max lebar 1200px (Tajam tapi tidak raksasa)
-            // Jika foto asli < 1200px, tidak akan di-upscale (tetap tajam)
-            const maxWidth = 1200;
-            const scale = Math.min(1, maxWidth / img.width);
-            
-            canvas.width = img.width * scale;
-            canvas.height = img.height * scale;
-            
-            // Render gambar ke canvas
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            
-            // Kompres dengan kualitas 0.85 (Sangat jelas, ukuran ~300-600KB)
-            resolve(canvas.toDataURL('image/jpeg', 0.85));
-        };
-        img.src = base64Str;
-    });
-}
-
 document.addEventListener('DOMContentLoaded', function() {
     const loadingScreen = document.getElementById('loadingScreen');
     if (loadingScreen) loadingScreen.style.display = 'none';
@@ -52,24 +26,33 @@ function updateDateTime() {
     if (timeEl) timeEl.textContent = now.toLocaleTimeString('id-ID');
 }
 
-// Buka Kamera
+// Fungsi Kamera: Buka Kamera DEPAN (USER)
 const startCameraBtn = document.getElementById('startCamera');
 if (startCameraBtn) {
     startCameraBtn.addEventListener('click', async function() {
         try {
+            // UBAH 'environment' MENJADI 'user' UNTUK KAMERA DEPAN
             stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } 
+                video: { 
+                    facingMode: 'user', 
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                } 
             });
-            document.getElementById('camera').srcObject = stream;
+            
+            const video = document.getElementById('camera');
+            video.srcObject = stream;
+            
             this.classList.add('hidden');
             document.getElementById('takePhoto').classList.remove('hidden');
+            
         } catch (error) {
-            alert('Gagal akses kamera: ' + error.message);
+            alert('Gagal mengakses kamera: ' + error.message);
         }
     });
 }
 
-// Ambil Foto (Simpan Full Quality Dulu untuk Preview)
+// Fungsi Kamera: Ambil Foto
 const takePhotoBtn = document.getElementById('takePhoto');
 if (takePhotoBtn) {
     takePhotoBtn.addEventListener('click', function() {
@@ -79,11 +62,10 @@ if (takePhotoBtn) {
         
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        const context = canvas.getContext('2d');
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        // Simpan full quality untuk preview di layar siswa
-        photoData = canvas.toDataURL('image/jpeg', 0.95); 
-        
+        photoData = canvas.toDataURL('image/jpeg', 0.8);
         photoPreview.src = photoData;
         photoPreview.classList.remove('hidden');
         video.classList.add('hidden');
@@ -96,15 +78,17 @@ if (takePhotoBtn) {
     });
 }
 
-// Ulangi Foto
+// Fungsi Kamera: Ulangi Foto
 const retakePhotoBtn = document.getElementById('retakePhoto');
 if (retakePhotoBtn) {
     retakePhotoBtn.addEventListener('click', function() {
         document.getElementById('photoPreview').classList.add('hidden');
         document.getElementById('camera').classList.remove('hidden');
+        
         this.classList.add('hidden');
         document.getElementById('takePhoto').classList.remove('hidden');
         document.getElementById('submitBtn').disabled = true;
+        
         photoData = null;
         startCameraAgain();
     });
@@ -112,12 +96,17 @@ if (retakePhotoBtn) {
 
 async function startCameraAgain() {
     try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        // PASTIKAN INI JUGA 'user' AGAR TETAP KAMERA DEPAN SAAT RETAKE
+        stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'user' } 
+        });
         document.getElementById('camera').srcObject = stream;
-    } catch (error) { console.error(error); }
+    } catch (error) {
+        console.error('Gagal restart kamera:', error);
+    }
 }
 
-// Submit Form (DENGAN KOMPRESI HIGH QUALITY)
+// Submit Form Absensi
 const attendanceForm = document.getElementById('attendanceForm');
 if (attendanceForm) {
     attendanceForm.addEventListener('submit', async function(e) {
@@ -129,18 +118,15 @@ if (attendanceForm) {
         const submitBtn = document.getElementById('submitBtn');
         
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Optimasi & Kirim...';
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim Data...';
 
         try {
-            // KOMPRES DENGAN KUALITAS TINGGI SEBELUM DIKIRIM
-            const compressedPhoto = await compressImage(photoData);
-            
             const payload = {
                 studentName: studentName,
                 kelas: kelas,
                 timestamp: new Date().toISOString(),
                 status: 'Tepat Waktu',
-                photo: compressedPhoto 
+                photo: photoData
             };
 
             await fetch(GOOGLE_SCRIPT_URL, {
@@ -153,13 +139,14 @@ if (attendanceForm) {
             document.getElementById('successMessage').classList.remove('hidden');
             
         } catch (error) {
-            alert('Gagal mengirim: ' + error.message);
+            alert('Gagal mengirim data: ' + error.message);
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Konfirmasi Absensi';
         }
     });
 }
 
+// Reset Form
 function resetForm() {
     document.getElementById('attendanceForm').reset();
     document.getElementById('successMessage').classList.add('hidden');
@@ -170,6 +157,10 @@ function resetForm() {
     document.getElementById('retakePhoto').classList.add('hidden');
     document.getElementById('submitBtn').disabled = true;
     document.getElementById('submitBtn').innerHTML = '<i class="fas fa-check-circle"></i> Konfirmasi Absensi';
+    
     photoData = null;
-    if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; }
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
 }
