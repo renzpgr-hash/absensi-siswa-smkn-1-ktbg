@@ -130,3 +130,12 @@ async function exportData() {
     a.download = 'data_absensi.csv';
     a.click();
 }
+
+async function getData() {
+    try {
+        // Tambahkan ?t=timestamp biar gak kena cache
+        const res = await fetch(`${SCRIPT_URL}?t=${Date.now()}`);
+        const text = await res.text();
+        // ... sisa kode sama ...
+    }
+}
