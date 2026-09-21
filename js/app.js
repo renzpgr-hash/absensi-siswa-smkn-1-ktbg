@@ -55,7 +55,7 @@ const startCameraBtn = document.getElementById('startCamera');
 if (startCameraBtn) {
     startCameraBtn.addEventListener('click', async function() {
         try {
-            // facingMode: 'user' memaksa pakai kamera depan
+            // facingMode: 'user' MEMAKSA PAKAI KAMERA DEPAN
             stream = await navigator.mediaDevices.getUserMedia({ 
                 video: { 
                     facingMode: 'user', 
@@ -67,7 +67,7 @@ if (startCameraBtn) {
             const video = document.getElementById('camera');
             video.srcObject = stream;
             
-            // PASTIKAN TIDAK ADA TRANSFORM MIRROR
+            // PASTIKAN TIDAK ADA TRANSFORM MIRROR DI CSS JS
             video.style.transform = 'none'; 
             
             this.classList.add('hidden');
