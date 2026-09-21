@@ -6,6 +6,30 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxfz8mRa--N1B
 let stream = null;
 let photoData = null;
 
+// FUNGSI KOMPRESI FOTO HIGH QUALITY (Max 1200px, Quality 0.85)
+async function compressImage(base64Str) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Resize max lebar 1200px agar tajam tapi tidak terlalu berat
+            const maxWidth = 1200;
+            const scale = Math.min(1, maxWidth / img.width);
+            
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+            
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            // Kualitas 0.85 adalah titik optimal (Jernih & Ukuran ~300-600KB)
+            resolve(canvas.toDataURL('image/jpeg', 0.85));
+        };
+        img.src = base64Str;
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const loadingScreen = document.getElementById('loadingScreen');
     if (loadingScreen) loadingScreen.style.display = 'none';
@@ -26,22 +50,25 @@ function updateDateTime() {
     if (timeEl) timeEl.textContent = now.toLocaleTimeString('id-ID');
 }
 
-// Fungsi Kamera: Buka Kamera DEPAN (USER)
+// Fungsi Kamera: Buka Kamera DEPAN TANPA MIRROR
 const startCameraBtn = document.getElementById('startCamera');
 if (startCameraBtn) {
     startCameraBtn.addEventListener('click', async function() {
         try {
-            // UBAH 'environment' MENJADI 'user' UNTUK KAMERA DEPAN
+            // facingMode: 'user' memaksa pakai kamera depan
             stream = await navigator.mediaDevices.getUserMedia({ 
                 video: { 
                     facingMode: 'user', 
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
                 } 
             });
             
             const video = document.getElementById('camera');
             video.srcObject = stream;
+            
+            // PASTIKAN TIDAK ADA TRANSFORM MIRROR
+            video.style.transform = 'none'; 
             
             this.classList.add('hidden');
             document.getElementById('takePhoto').classList.remove('hidden');
@@ -52,10 +79,10 @@ if (startCameraBtn) {
     });
 }
 
-// Fungsi Kamera: Ambil Foto
+// Fungsi Kamera: Ambil Foto (ANTI MIRROR + KOMPRESI HQ)
 const takePhotoBtn = document.getElementById('takePhoto');
 if (takePhotoBtn) {
-    takePhotoBtn.addEventListener('click', function() {
+    takePhotoBtn.addEventListener('click', async function() {
         const video = document.getElementById('camera');
         const canvas = document.getElementById('canvas');
         const photoPreview = document.getElementById('photoPreview');
@@ -63,10 +90,17 @@ if (takePhotoBtn) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const context = canvas.getContext('2d');
+        
+        // Gambar langsung tanpa flip horizontal (Non-Mirror)
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        photoData = canvas.toDataURL('image/jpeg', 0.8);
-        photoPreview.src = photoData;
+        // Simpan full quality dulu untuk preview
+        const fullQualityPhoto = canvas.toDataURL('image/jpeg', 0.95);
+        
+        // Preview hasil juga tidak boleh mirror
+        photoPreview.src = fullQualityPhoto;
+        photoPreview.style.transform = 'none'; 
+        
         photoPreview.classList.remove('hidden');
         video.classList.add('hidden');
         
@@ -85,6 +119,9 @@ if (retakePhotoBtn) {
         document.getElementById('photoPreview').classList.add('hidden');
         document.getElementById('camera').classList.remove('hidden');
         
+        // Pastikan tetap tidak mirror saat kembali ke live camera
+        document.getElementById('camera').style.transform = 'none';
+        
         this.classList.add('hidden');
         document.getElementById('takePhoto').classList.remove('hidden');
         document.getElementById('submitBtn').disabled = true;
@@ -100,13 +137,15 @@ async function startCameraAgain() {
         stream = await navigator.mediaDevices.getUserMedia({ 
             video: { facingMode: 'user' } 
         });
-        document.getElementById('camera').srcObject = stream;
+        const video = document.getElementById('camera');
+        video.srcObject = stream;
+        video.style.transform = 'none'; // Re-apply non-mirror
     } catch (error) {
         console.error('Gagal restart kamera:', error);
     }
 }
 
-// Submit Form Absensi
+// Submit Form Absensi (DENGAN KOMPRESI OTOMATIS)
 const attendanceForm = document.getElementById('attendanceForm');
 if (attendanceForm) {
     attendanceForm.addEventListener('submit', async function(e) {
@@ -118,15 +157,18 @@ if (attendanceForm) {
         const submitBtn = document.getElementById('submitBtn');
         
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim Data...';
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Optimasi & Kirim...';
 
         try {
+            // KOMPRES DENGAN KUALITAS TINGGI SEBELUM DIKIRIM
+            const compressedPhoto = await compressImage(photoData);
+            
             const payload = {
                 studentName: studentName,
                 kelas: kelas,
                 timestamp: new Date().toISOString(),
                 status: 'Tepat Waktu',
-                photo: photoData
+                photo: compressedPhoto 
             };
 
             await fetch(GOOGLE_SCRIPT_URL, {
